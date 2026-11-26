@@ -8,13 +8,13 @@ export interface FocusRequest {
 }
 
 const STYLES: Record<TextBlock['type'], string> = {
-  paragraph: 'text-[1.0625rem] leading-7',
-  heading: 'text-2xl font-semibold leading-9 tracking-tight',
-  bullet: 'text-[1.0625rem] leading-7',
+  paragraph: 'text-[1.125rem] leading-[1.75]',
+  heading: 'font-display text-[1.9rem] leading-[1.1] pt-5 pb-1',
+  bullet: 'text-[1.125rem] leading-[1.75]',
 }
 
 const PLACEHOLDERS: Record<TextBlock['type'], string> = {
-  paragraph: 'Write something, or press + to add a voice note…',
+  paragraph: 'Write something…',
   heading: 'Heading',
   bullet: 'List item',
 }
@@ -69,7 +69,7 @@ function TextBlockViewImpl({
   return (
     <div className="flex items-start gap-2">
       {block.type === 'bullet' && (
-        <span aria-hidden="true" className="mt-[0.7rem] h-1.5 w-1.5 shrink-0 rounded-full bg-fg/60" />
+        <span aria-hidden="true" className="mt-[0.95rem] h-[5px] w-[5px] shrink-0 rotate-45 bg-accent-ink" />
       )}
       <textarea
         ref={ref}

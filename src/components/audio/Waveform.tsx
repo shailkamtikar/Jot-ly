@@ -10,6 +10,7 @@ export function Waveform({
   disabled,
   onSeek,
   label,
+  tone = 'default',
 }: {
   peaks: number[]
   /** 0..1 */
@@ -18,6 +19,7 @@ export function Waveform({
   disabled?: boolean
   onSeek: (fraction: number) => void
   label: string
+  tone?: 'default' | 'sticker'
 }) {
   const bars = peaks.length > 0 ? peaks : FALLBACK
   const ref = useRef<HTMLDivElement>(null)
@@ -67,7 +69,7 @@ export function Waveform({
           <span
             key={i}
             aria-hidden="true"
-            className={`flex-1 rounded-full transition-colors ${played ? 'bg-accent' : 'bg-fg/20'}`}
+            className={`flex-1 rounded-full transition-colors ${tone === 'sticker' ? (played ? 'bg-[var(--sticker-ink)]' : 'bg-[var(--sticker-ink)]/25') : played ? 'bg-accent' : 'bg-fg/20'}`}
             style={{ height: `${Math.max(12, p * 100)}%` }}
           />
         )

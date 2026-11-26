@@ -1,14 +1,15 @@
 import { AnimatePresence, Reorder } from 'motion/react'
-import { Fragment, useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { computePeaks } from '../../audio/peaks'
 import type { RecordingResult } from '../../audio/recorder'
 import { createBlock, insertAfter, isText, moveBlock, neighborTextId, removeBlock, splitBlock, uid, updateBlock } from '../../lib/blocks'
-import type { AudioBlock, AudioRecord, Block, Page, TextBlock, TextBlockType } from '../../lib/types'
+import { reanchorStickers } from '../../lib/stickers'
+import type { AudioRecord, Block, Page, Sticker, TextBlock, TextBlockType } from '../../lib/types'
 import { toStorageError } from '../../storage'
 import { useWorkspace } from '../../state/workspace'
-import { AudioBlockView } from '../audio/AudioBlockView'
 import { RecorderCard } from '../audio/RecorderCard'
-import { MicIcon, PlusIcon } from '../icons'
+import { MicIcon } from '../icons'
+import { measureRows, offsetWithin, STICKER_WIDTH } from '../stickers/geometry'
 import { BlockRow, type RowActions } from './BlockRow'
 import { TextBlockView, type FocusRequest } from './TextBlockView'
 
@@ -17,17 +18,30 @@ const TYPE_SHORTCUTS: Array<[RegExp, TextBlockType]> = [
   [/^[-*] /, 'bullet'],
 ]
 
-export function PageEditor({ page }: { page: Page }) {
+const addBtn = 'label rounded-[3px] border border-line-strong px-3 py-2 text-muted transition-colors hover:border-fg hover:text-fg'
+
+export function PageEditor({ page, canvasRef }: { page: Page; canvasRef: React.RefObject<HTMLElement | null> }) {
   const { updatePage, addSticker, setFocusedBlockId, focusedBlockId } = useWorkspace()
   const [focusReq, setFocusReq] = useState<FocusRequest | null>(null)
-  /** undefined = recorder closed; null = open at the end; string = open after that block. */
-  const [recorderAfter, setRecorderAfter] = useState<string | null | undefined>(undefined)
+  const [recorderOpen, setRecorderOpen] = useState(false)
+  /** The block the recording is attached to while the recorder is open. */
+  const [recorderAfter, setRecorderAfter] = useState<string | null>(null)
   const focusN = useRef(0)
+  const listRef = useRef<HTMLUListElement>(null)
   const pageId = page.id
 
   const edit = useCallback(
     (fn: (blocks: Block[]) => Block[], immediate = true) => updatePage(pageId, (p) => ({ ...p, blocks: fn(p.blocks) }), { immediate }),
     [pageId, updatePage],
+  )
+
+  /** Remove a block; stickers attached to it stay where they are visually, re-attached to a neighbour. */
+  const removeAndReanchor = useCallback(
+    (id: string, target: string | null) => {
+      const rows = measureRows(canvasRef.current)
+      updatePage(pageId, (p) => ({ ...p, blocks: removeBlock(p.blocks, id), stickers: reanchorStickers(p.stickers, id, rows, target) }), { immediate: true })
+    },
+    [canvasRef, pageId, updatePage],
   )
 
   const focus = useCallback((id: string, at: 'start' | 'end') => {
@@ -64,7 +78,7 @@ export function PageEditor({ page }: { page: Page }) {
     move,
     remove: (id) => {
       const prev = neighborTextId(page.blocks, id, -1) ?? neighborTextId(page.blocks, id, 1)
-      edit((blocks) => removeBlock(blocks, id))
+      removeAndReanchor(id, prev)
       if (prev) focus(prev, 'end')
     },
   }
@@ -101,7 +115,7 @@ export function PageEditor({ page }: { page: Page }) {
         if (page.blocks.length <= 1) return
         if (!prev && !next) return
         e.preventDefault()
-        edit((blocks) => removeBlock(blocks, block.id))
+        removeAndReanchor(block.id, prev ?? next)
         if (prev) focus(prev, 'end')
         else if (next) focus(next, 'start')
         return
@@ -123,7 +137,7 @@ export function PageEditor({ page }: { page: Page }) {
         }
       }
     },
-    [edit, focus, move, page.blocks],
+    [edit, focus, move, page.blocks, removeAndReanchor],
   )
 
   function addText(type: TextBlockType) {
@@ -134,7 +148,26 @@ export function PageEditor({ page }: { page: Page }) {
 
   function openRecorder() {
     const exists = focusedBlockId && page.blocks.some((b) => b.id === focusedBlockId)
-    setRecorderAfter(exists ? focusedBlockId : null)
+    setRecorderAfter(exists ? focusedBlockId : (page.blocks.at(-1)?.id ?? null))
+    setRecorderOpen(true)
+  }
+
+  function closeRecorder() {
+    setRecorderOpen(false)
+  }
+
+  /** First home for a new sticker: in the margin beside the text if there is room, else tucked at the line's right end. */
+  function defaultPlacement(): { x: number; anchorId: string | null; dy: number } {
+    const canvas = canvasRef.current
+    const list = listRef.current
+    const anchorId = recorderAfter
+    if (!canvas || !list) return { x: 0.7, anchorId, dy: 0 }
+    const canvasW = canvas.clientWidth
+    const listLeft = offsetWithin(list, canvas).left
+    const colRight = listLeft + list.offsetWidth
+    const roomRight = canvasW - colRight
+    const left = roomRight >= STICKER_WIDTH + 16 ? colRight + 12 : Math.max(0, colRight - STICKER_WIDTH - 4)
+    return { x: left / canvasW, anchorId, dy: 2 }
   }
 
   async function saveRecording(result: RecordingResult) {
@@ -148,21 +181,21 @@ export function PageEditor({ page }: { page: Page }) {
       byteSize: result.blob.size,
       durationMs: result.durationMs,
     }
-    const block: AudioBlock = {
+    const place = defaultPlacement()
+    const sticker: Sticker = {
       id: uid(),
-      type: 'audio',
       audioId,
-      title: `Voice note — ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
+      title: 'Voice note',
       durationMs: result.durationMs,
       peaks,
+      ...place,
     }
     try {
-      await addSticker(pageId, recorderAfter ?? null, record, block)
+      await addSticker(pageId, sticker, record)
     } catch (e) {
       throw new Error(toStorageError(e).message)
     }
-    setFocusedBlockId(block.id)
-    setRecorderAfter(undefined)
+    setRecorderOpen(false)
   }
 
   function reorder(ids: string[]) {
@@ -177,55 +210,44 @@ export function PageEditor({ page }: { page: Page }) {
 
   return (
     <div data-testid="editor">
-      <Reorder.Group axis="y" values={ids} onReorder={reorder} className="m-0 flex list-none flex-col gap-1 p-0" as="ul">
+      <Reorder.Group ref={listRef} axis="y" values={ids} onReorder={reorder} className="m-0 flex list-none flex-col gap-1 p-0" as="ul">
         <AnimatePresence initial={false}>
           {page.blocks.map((block, i) => (
-            <Fragment key={block.id}>
-              <BlockRow block={block} index={i} total={page.blocks.length} actions={actions}>
-                {isText(block) ? (
-                  <TextBlockView block={block} focusRequest={focusReq} onChange={onChange} onKeyDown={onKeyDown} onFocus={setFocusedBlockId} />
-                ) : block.type === 'audio' ? (
-                  <div onFocus={() => setFocusedBlockId(block.id)} onPointerDown={() => setFocusedBlockId(block.id)}>
-                    <AudioBlockView block={block} pageId={pageId} />
-                  </div>
-                ) : (
-                  <p className="rounded-lg border border-dashed border-line px-3 py-2 text-sm text-muted">This block type isn’t supported by this version of Jotly. It’s kept safe in your data.</p>
-                )}
-              </BlockRow>
-              {recorderAfter === block.id && (
-                <li className="list-none" key={`rec-${block.id}`}>
-                  <RecorderCard onSave={saveRecording} onClose={() => setRecorderAfter(undefined)} />
-                </li>
+            <BlockRow key={block.id} block={block} index={i} total={page.blocks.length} actions={actions}>
+              {isText(block) ? (
+                <TextBlockView block={block} focusRequest={focusReq} onChange={onChange} onKeyDown={onKeyDown} onFocus={setFocusedBlockId} />
+              ) : (
+                <p className="rounded-[3px] border border-dashed border-line-strong px-3 py-2 text-sm text-muted">
+                  This block type isn’t supported by this version of Jotly. It’s kept safe in your data.
+                </p>
               )}
-            </Fragment>
+            </BlockRow>
           ))}
         </AnimatePresence>
       </Reorder.Group>
 
-      {recorderAfter === null && <RecorderCard onSave={saveRecording} onClose={() => setRecorderAfter(undefined)} />}
+      <AnimatePresence>{recorderOpen && <RecorderCard key="recorder" onSave={saveRecording} onClose={closeRecorder} />}</AnimatePresence>
 
-      {recorderAfter === undefined && (
-        <div className="mt-4 flex flex-wrap items-center gap-2 pl-14 max-md:pl-8" role="toolbar" aria-label="Add a block">
-          <span className="mr-1 flex items-center gap-1 text-xs text-muted">
-            <PlusIcon width={14} height={14} /> Add
-          </span>
-          <button type="button" onClick={() => addText('paragraph')} className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-sunken">
+      {!recorderOpen && (
+        <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-line pt-5 md:pl-14" role="toolbar" aria-label="Add a block">
+          <span className="label mr-2 text-muted">Add</span>
+          <button type="button" onClick={() => addText('paragraph')} className={addBtn}>
             Text
           </button>
-          <button type="button" onClick={() => addText('heading')} className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-sunken">
+          <button type="button" onClick={() => addText('heading')} className={addBtn}>
             Heading
           </button>
-          <button type="button" onClick={() => addText('bullet')} className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-sunken">
+          <button type="button" onClick={() => addText('bullet')} className={addBtn}>
             Bullet
           </button>
           <button
             type="button"
             onClick={openRecorder}
-            title="Inserts after the block you’re editing"
+            title="Attaches to the line you’re editing"
             data-testid="add-audio"
-            className="flex items-center gap-1.5 rounded-lg bg-accent-soft px-3 py-1.5 text-sm font-medium text-accent hover:brightness-95"
+            className="label arrow-link flex items-center gap-2 rounded-[3px] bg-accent px-3.5 py-2 text-accent-fg transition-[filter] hover:brightness-105"
           >
-            <MicIcon width={15} height={15} /> Audio sticker
+            <MicIcon width={14} height={14} /> Audio sticker
           </button>
         </div>
       )}

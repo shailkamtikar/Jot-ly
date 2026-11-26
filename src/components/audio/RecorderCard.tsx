@@ -71,7 +71,7 @@ export function RecorderCard({
     <section
       aria-label="Record an audio sticker"
       data-testid="recorder"
-      className="my-2 rounded-2xl border border-line bg-surface p-4 shadow-sm"
+      className="my-2 rounded-md border border-line-strong bg-surface p-5 shadow-lg"
       onKeyDown={(e) => {
         if (e.key === 'Escape' && !live) close()
       }}
@@ -86,10 +86,10 @@ export function RecorderCard({
             Jotly will ask to use your microphone. Audio stays on this device and recording only happens while you see the red indicator.
           </p>
           <div className="flex gap-2">
-            <button ref={startRef} type="button" onClick={rec.start} className="flex items-center gap-2 rounded-xl bg-rec px-4 py-2.5 text-sm font-medium text-white">
+            <button ref={startRef} type="button" onClick={rec.start} className="flex items-center gap-2 rounded-[3px] bg-rec px-4 py-2.5 label text-white">
               <MicIcon width={16} height={16} /> Start recording
             </button>
-            <button type="button" onClick={close} className="rounded-xl border border-line px-4 py-2.5 text-sm hover:bg-sunken">
+            <button type="button" onClick={close} className="rounded-[3px] border border-line-strong px-4 py-2.5 label hover:bg-sunken">
               Cancel
             </button>
           </div>
@@ -99,7 +99,7 @@ export function RecorderCard({
       {rec.state === 'requesting' && (
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-muted">Waiting for microphone permission… check your browser’s prompt.</p>
-          <button type="button" onClick={close} className="rounded-xl border border-line px-3 py-2 text-sm hover:bg-sunken">
+          <button type="button" onClick={close} className="rounded-[3px] border border-line-strong px-3 py-2 label hover:bg-sunken">
             Cancel
           </button>
         </div>
@@ -121,18 +121,18 @@ export function RecorderCard({
           )}
           <span className="ml-auto flex gap-2">
             {rec.state === 'recording' ? (
-              <button type="button" onClick={rec.pause} className="flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-sm hover:bg-sunken">
+              <button type="button" onClick={rec.pause} className="flex items-center gap-1.5 rounded-[3px] border border-line-strong px-3 py-2 label hover:bg-sunken">
                 <PauseIcon width={14} height={14} /> Pause
               </button>
             ) : (
-              <button type="button" onClick={rec.resume} className="flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-sm hover:bg-sunken">
+              <button type="button" onClick={rec.resume} className="flex items-center gap-1.5 rounded-[3px] border border-line-strong px-3 py-2 label hover:bg-sunken">
                 <PlayIcon width={14} height={14} /> Resume
               </button>
             )}
-            <button type="button" onClick={rec.stop} className="flex items-center gap-1.5 rounded-xl bg-fg px-3 py-2 text-sm font-medium text-bg">
+            <button type="button" onClick={rec.stop} className="flex items-center gap-1.5 rounded-[3px] bg-fg px-3 py-2 label text-bg">
               <StopIcon width={14} height={14} /> Stop
             </button>
-            <button type="button" onClick={() => setConfirmDiscard(true)} className="rounded-xl px-3 py-2 text-sm text-muted hover:bg-sunken hover:text-fg">
+            <button type="button" onClick={() => setConfirmDiscard(true)} className="rounded-[3px] px-3 py-2 label text-muted hover:text-fg">
               Cancel
             </button>
           </span>
@@ -143,10 +143,10 @@ export function RecorderCard({
         <div role="alertdialog" aria-label="Discard recording?" className="flex flex-wrap items-center gap-3">
           <p className="text-sm">Discard this recording?</p>
           <span className="ml-auto flex gap-2">
-            <button type="button" autoFocus onClick={() => setConfirmDiscard(false)} className="rounded-xl border border-line px-3 py-2 text-sm hover:bg-sunken">
+            <button type="button" autoFocus onClick={() => setConfirmDiscard(false)} className="rounded-[3px] border border-line-strong px-3 py-2 label hover:bg-sunken">
               Keep recording
             </button>
-            <button type="button" onClick={close} className="rounded-xl bg-danger px-3 py-2 text-sm font-medium text-white">
+            <button type="button" onClick={close} className="rounded-[3px] bg-danger px-3 py-2 label text-white">
               Discard
             </button>
           </span>
@@ -167,10 +167,10 @@ export function RecorderCard({
             </p>
           )}
           <div className="flex gap-2">
-            <button type="button" disabled={saving} onClick={save} className="rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg" data-testid="add-to-note">
+            <button type="button" disabled={saving} onClick={save} className="rounded-[3px] bg-accent px-4 py-2.5 label text-accent-fg" data-testid="add-to-note">
               {saving ? 'Adding…' : saveError ? 'Try again' : 'Add to note'}
             </button>
-            <button type="button" disabled={saving} onClick={close} className="rounded-xl border border-line px-4 py-2.5 text-sm hover:bg-sunken">
+            <button type="button" disabled={saving} onClick={close} className="rounded-[3px] border border-line-strong px-4 py-2.5 label hover:bg-sunken">
               Discard
             </button>
           </div>
@@ -183,10 +183,10 @@ export function RecorderCard({
             {ERROR_HELP[rec.error.code]}
           </p>
           <div className="flex gap-2">
-            <button type="button" onClick={() => rec.reset()} className="rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg">
+            <button type="button" onClick={() => rec.reset()} className="rounded-[3px] bg-accent px-4 py-2.5 label text-accent-fg">
               Try again
             </button>
-            <button type="button" onClick={close} className="rounded-xl border border-line px-4 py-2.5 text-sm hover:bg-sunken">
+            <button type="button" onClick={close} className="rounded-[3px] border border-line-strong px-4 py-2.5 label hover:bg-sunken">
               Close
             </button>
           </div>
