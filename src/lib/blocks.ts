@@ -49,18 +49,37 @@ export function isText(b: Block): b is TextBlock {
   return b.type === 'paragraph' || b.type === 'heading' || b.type === 'bullet'
 }
 
-/** Split a text block at a caret offset into two blocks. The second inherits list type. */
-export function splitBlock(blocks: Block[], id: string, caret: number): { blocks: Block[]; newId: string } | null {
+/**
+ * Split a text block at a caret into two blocks. The second inherits list type.
+ * Text between `caret` and `end` (a selection) is dropped.
+ */
+export function splitBlock(
+  blocks: Block[],
+  id: string,
+  caret: number,
+  newId: string = uid(),
+  end: number = caret,
+): { blocks: Block[]; newId: string } | null {
   const idx = blocks.findIndex((b) => b.id === id)
   const b = blocks[idx]
   if (!b || !isText(b)) return null
   const head = b.content.slice(0, caret)
-  const tail = b.content.slice(caret)
-  const next = createBlock(b.type === 'bullet' ? 'bullet' : 'paragraph', tail)
+  const tail = b.content.slice(end)
+  const next: TextBlock = { id: newId, type: b.type === 'bullet' ? 'bullet' : 'paragraph', content: tail }
   const out = [...blocks]
   out[idx] = { ...b, content: head }
   out.splice(idx + 1, 0, next)
-  return { blocks: out, newId: next.id }
+  return { blocks: out, newId }
+}
+
+/** The nearest text block before (-1) or after (+1) `id`, skipping audio and unsupported blocks. */
+export function neighborTextId(blocks: Block[], id: string, dir: -1 | 1): string | null {
+  const idx = blocks.findIndex((b) => b.id === id)
+  if (idx === -1) return null
+  for (let i = idx + dir; i >= 0 && i < blocks.length; i += dir) {
+    if (isText(blocks[i])) return blocks[i].id
+  }
+  return null
 }
 
 export function formatDuration(ms: number): string {

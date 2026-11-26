@@ -1,4 +1,4 @@
-import { createPage, createBlock, insertAfter, moveBlock, removeBlock, splitBlock, updateBlock, formatDuration } from './blocks'
+import { createPage, createBlock, insertAfter, moveBlock, neighborTextId, removeBlock, splitBlock, updateBlock, formatDuration } from './blocks'
 import { migrate, validatePage } from './schema'
 import type { AudioBlock, Block } from './types'
 
@@ -46,6 +46,21 @@ describe('blocks', () => {
     const b = createBlock('bullet', 'hello world')
     const r = splitBlock([b], b.id, 5)!
     expect(r.blocks).toMatchObject([{ content: 'hello' }, { type: 'bullet', content: ' world' }])
+  })
+
+  it('drops a selected range when splitting', () => {
+    const b = createBlock('paragraph', 'hello brave world')
+    const r = splitBlock([b], b.id, 5, 'n1', 11)!
+    expect(r.blocks).toMatchObject([{ content: 'hello' }, { id: 'n1', type: 'paragraph', content: ' world' }])
+  })
+
+  it('finds neighbouring text blocks, skipping audio', () => {
+    const [a, c] = [createBlock(), createBlock()]
+    const blocks: Block[] = [a, audio(), c]
+    expect(neighborTextId(blocks, a.id, 1)).toBe(c.id)
+    expect(neighborTextId(blocks, c.id, -1)).toBe(a.id)
+    expect(neighborTextId(blocks, a.id, -1)).toBeNull()
+    expect(neighborTextId(blocks, 'nope', 1)).toBeNull()
   })
 
   it('formats durations', () => {
