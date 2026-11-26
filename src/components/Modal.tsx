@@ -52,7 +52,7 @@ export function Modal({
 
   return createPortal(
     <motion.div
-      className={`fixed inset-0 z-50 flex justify-center bg-black/40 p-4 backdrop-blur-[2px] ${align === 'top' ? 'items-start pt-[12vh]' : 'items-center'}`}
+      className={`fixed inset-0 z-50 flex justify-center bg-black/55 p-4 backdrop-blur-[3px] ${align === 'top' ? 'items-start pt-[12vh]' : 'items-center'}`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -64,10 +64,10 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         onKeyDown={onKeyDown}
-        className="w-full max-w-md rounded-2xl border border-line bg-surface p-5 shadow-2xl"
+        className="w-full max-w-md rounded-md border border-line bg-surface p-5 shadow-2xl"
         {...pop}
       >
-        <h2 id={titleId} className={labelHidden ? 'sr-only' : 'mb-3 text-base font-semibold'}>
+        <h2 id={titleId} className={labelHidden ? 'sr-only' : 'font-display mb-3 text-2xl'}>
           {title}
         </h2>
         {children}

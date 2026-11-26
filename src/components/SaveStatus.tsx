@@ -19,10 +19,11 @@ export function SaveStatus() {
   }
 
   return (
-    <div role="status" aria-live="polite" className={`min-h-5 text-xs ${tone}`} data-testid="save-status">
+    <div role="status" aria-live="polite" className={`label flex min-h-5 items-center gap-2 max-sm:hidden ${tone}`} data-testid="save-status">
       <AnimatePresence mode="wait" initial={false}>
         {text && (
-          <motion.span key={text} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}>
+          <motion.span key={text} initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.14 }} className="flex items-center gap-2">
+            <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${saveStatus === 'saving' ? 'animate-pulse bg-accent' : tone === 'text-danger' ? 'bg-danger' : 'bg-accent-ink'}`} />
             {text}
           </motion.span>
         )}

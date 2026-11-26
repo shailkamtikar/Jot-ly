@@ -125,3 +125,8 @@ export const DotsIcon = (p: P) => (
     <circle cx="19" cy="12" r="1.7" />
   </Svg>
 )
+export const ArrowIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 12h16M14 6l6 6-6 6" />
+  </Svg>
+)

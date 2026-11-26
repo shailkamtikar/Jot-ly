@@ -1,33 +1,56 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/inter';
+@import '@fontsource/anton/latin-400.css';
+@import '@fontsource-variable/instrument-sans/wght.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import 'lenis/dist/lenis.css';
 
+/* Warm paper and ink. One restrained ochre accent; nothing neon, nothing gradient-y. */
 :root {
-  --bg: #fafaf9;
-  --surface: #ffffff;
-  --sunken: #f3f2f0;
-  --fg: #1c1917;
-  --muted: #6b655f;
-  --line: #e7e5e4;
-  --accent: #5b4bff;
-  --accent-soft: #eeebff;
-  --accent-fg: #ffffff;
-  --danger: #c81e1e;
-  --rec: #e11d48;
+  --bg: #f3ede0;
+  --surface: #faf6ec;
+  --sunken: #eae2d1;
+  --fg: #1a1611;
+  --muted: #655d4e;
+  --line: #d8cdb6;
+  --line-strong: #bfb297;
+  --accent: #c18a22;
+  --accent-fg: #17110a;
+  --accent-ink: #7e5508;
+  --accent-soft: #ecdfc2;
+  --danger: #b4381f;
+  --rec: #c4452c;
+  --glow: rgba(193, 138, 34, 0.16);
+
+  --sticker-1: #e6c98a;
+  --sticker-2: #b9c7a5;
+  --sticker-3: #e0b09a;
+  --sticker-4: #b7c3d0;
+  --sticker-ink: #1a1611;
   color-scheme: light;
 }
 
 :root[data-theme='dark'] {
-  --bg: #0d0d0f;
-  --surface: #151518;
-  --sunken: #1b1b1f;
-  --fg: #ececee;
-  --muted: #a1a1aa;
-  --line: #27272c;
-  --accent: #9a8cff;
-  --accent-soft: #23203d;
-  --accent-fg: #0d0d0f;
-  --danger: #f87171;
-  --rec: #fb7185;
+  --bg: #12100d;
+  --surface: #191611;
+  --sunken: #1f1b15;
+  --fg: #ece4d3;
+  --muted: #a59c8a;
+  --line: #2d2820;
+  --line-strong: #453d30;
+  --accent: #d7a043;
+  --accent-fg: #15110a;
+  --accent-ink: #e3b45a;
+  --accent-soft: #2a2214;
+  --danger: #e07a66;
+  --rec: #dd6a55;
+  --glow: rgba(215, 160, 67, 0.12);
+
+  --sticker-1: #c9984a;
+  --sticker-2: #8ea07b;
+  --sticker-3: #c98468;
+  --sticker-4: #8a9db3;
+  --sticker-ink: #14110c;
   color-scheme: dark;
 }
 
@@ -38,12 +61,16 @@
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-accent: var(--accent);
-  --color-accent-soft: var(--accent-soft);
   --color-accent-fg: var(--accent-fg);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
   --color-rec: var(--rec);
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Anton', 'Impact', 'Arial Narrow Bold', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 html,
@@ -57,20 +84,52 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-sans);
+  font-feature-settings: 'ss01', 'cv11';
   -webkit-font-smoothing: antialiased;
-  transition: background-color 0.2s ease;
+  text-rendering: optimizeLegibility;
 }
 
-*:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 6px;
+/* A low sun in the corner: the only decoration, and it barely shows. */
+body::before {
+  content: '';
+  position: fixed;
+  right: -12vmax;
+  top: -16vmax;
+  width: 44vmax;
+  height: 44vmax;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, var(--glow), transparent 68%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+}
+
+/* Small mono caption used for metadata and buttons */
+.label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+@layer base {
+  *:focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
 }
 
 button {
   cursor: pointer;
 }
-
 button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -81,7 +140,8 @@ textarea {
 }
 
 ::selection {
-  background: var(--accent-soft);
+  background: var(--accent);
+  color: var(--accent-fg);
 }
 
 .skip-link {
@@ -92,7 +152,7 @@ textarea {
   background: var(--accent);
   color: var(--accent-fg);
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 3px;
 }
 .skip-link:focus {
   top: 8px;
@@ -100,16 +160,26 @@ textarea {
 
 .scroll-thin {
   scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+/* Underlined-link feel for editorial buttons */
+.arrow-link .arrow {
+  display: inline-block;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.arrow-link:hover .arrow,
+.arrow-link:focus-visible .arrow {
+  transform: translateX(4px);
 }
 
 @keyframes rec-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--rec) 45%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--rec) 50%, transparent);
   }
   50% {
-    box-shadow: 0 0 0 8px color-mix(in srgb, var(--rec) 0%, transparent);
+    box-shadow: 0 0 0 9px color-mix(in srgb, var(--rec) 0%, transparent);
   }
 }
 .rec-dot {

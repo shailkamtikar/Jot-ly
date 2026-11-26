@@ -10,10 +10,20 @@ async function savedStatus(page: Page) {
   await expect(page.getByTestId('save-status')).toContainText('Saved')
 }
 
-test('core flow: write, record an audio sticker, reload, play, rename, delete, export', async ({ page }) => {
+async function recordSticker(page: Page, ms = 1200) {
+  await page.getByTestId('add-audio').click()
+  await page.getByRole('button', { name: 'Start recording' }).click()
+  await expect(page.getByTestId('rec-timer')).toBeVisible()
+  await page.waitForTimeout(ms)
+  await page.getByRole('button', { name: 'Stop' }).click()
+  await expect(page.getByTestId('preview-audio')).toBeVisible()
+  await page.getByTestId('add-to-note').click()
+}
+
+test('core flow: write, record a sticker, reload, play, fold back, rename, delete, export', async ({ page }) => {
   await fresh(page)
 
-  // 1-3. create a page, type a paragraph, add heading + bullet
+  // create a page, type a paragraph, add heading + bullet
   await page.getByRole('button', { name: 'New page' }).click()
   const title = page.getByRole('textbox', { name: 'Page title' })
   await title.fill('Project planning')
@@ -26,8 +36,9 @@ test('core flow: write, record an audio sticker, reload, play, rename, delete, e
   await page.keyboard.type('Review first-session analytics.')
   await savedStatus(page)
 
-  // 4-6. record, pause, resume, stop, add to note — inserted after the first (focused) block
+  // record with pause/resume; the sticker attaches to the line being edited
   await first.click()
+  const firstId = await first.getAttribute('data-block-id')
   await page.getByTestId('add-audio').click()
   await page.getByRole('button', { name: 'Start recording' }).click()
   await expect(page.getByTestId('rec-timer')).toBeVisible()
@@ -43,50 +54,125 @@ test('core flow: write, record an audio sticker, reload, play, rename, delete, e
   await page.getByRole('button', { name: 'Stop' }).click()
   await expect(page.getByTestId('preview-audio')).toBeVisible()
   await page.getByTestId('add-to-note').click()
-  await expect(page.getByTestId('audio-block')).toHaveCount(1)
 
-  // sticker sits directly after the first block
-  const order = await page.locator('[data-testid="block-row"]').evaluateAll((rows) =>
-    rows.map((r) => (r.querySelector('[data-testid="audio-block"]') ? 'audio' : 'text')),
-  )
-  expect(order.indexOf('audio')).toBe(1)
+  const sticker = page.getByTestId('audio-block')
+  await expect(sticker).toHaveCount(1)
+  await expect(sticker).toHaveAttribute('data-anchor', firstId!)
+  await expect(sticker).toHaveAttribute('data-expanded', 'false') // new stickers start small
 
-  // 7-8. reload: text and audio still exist
+  // reload: text and sticker still exist, same attachment
   await savedStatus(page)
   await page.reload()
-  await expect(page.getByTestId('audio-block')).toHaveCount(1)
+  await expect(sticker).toHaveCount(1)
+  await expect(sticker).toHaveAttribute('data-anchor', firstId!)
   await expect(page.locator('[data-block-id]').first()).toHaveValue('We should simplify the onboarding flow.')
 
-  // 9. play / pause, speed
+  // play: it opens up; pause + move away: it folds back into a small sticker
   const play = page.getByTestId('play')
   await play.click()
   await expect(play).toHaveAccessibleName(/^Pause/)
+  await expect(sticker).toHaveAttribute('data-expanded', 'true')
   await page.getByTestId('speed').click()
   await expect(page.getByTestId('speed')).toHaveText('1.5×')
   await play.click()
   await expect(play).toHaveAccessibleName(/^Play/)
+  await page.mouse.move(5, 5)
+  await expect(sticker, await sticker.getAttribute('data-state') ?? '').toHaveAttribute('data-expanded', 'false', { timeout: 6000 })
 
-  // 10. rename and delete (with undo)
-  await page.getByTestId('sticker-title').click()
+  // rename (via the options menu)
+  await page.getByRole('button', { name: /^Options for/ }).click()
+  await page.getByRole('menuitem', { name: 'Rename' }).click()
   await page.getByRole('textbox', { name: 'Sticker name' }).fill('Onboarding context')
   await page.keyboard.press('Enter')
   await expect(page.getByTestId('sticker-title')).toHaveText('Onboarding context')
 
-  // 11. markdown export
+  // markdown export
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export page as Markdown' }).click()])
   expect(download.suggestedFilename()).toBe('project-planning.md')
 
-  await page.getByTestId('delete-sticker').click()
-  await expect(page.getByTestId('audio-block')).toHaveCount(0)
+  // delete, undo, delete
+  await page.getByRole('button', { name: /^Options for/ }).click()
+  await page.getByRole('menuitem', { name: 'Delete' }).click()
+  await expect(sticker).toHaveCount(0)
   await page.getByRole('button', { name: 'Undo' }).click()
-  await expect(page.getByTestId('audio-block')).toHaveCount(1)
-  await page.getByTestId('delete-sticker').click()
-  await expect(page.getByTestId('audio-block')).toHaveCount(0)
+  await expect(sticker).toHaveCount(1)
+  await page.getByRole('button', { name: /^Options for/ }).click()
+  await page.getByRole('menuitem', { name: 'Delete' }).click()
+  await expect(sticker).toHaveCount(0)
 
-  // 12. theme persists across reload
+  // theme persists across reload
   await page.getByRole('radio', { name: 'Dark theme' }).click()
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+})
+
+test('a sticker can be dragged anywhere, stays attached to its line, and survives a reload', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await fresh(page)
+  await page.getByRole('button', { name: 'New page' }).click()
+  await page.getByRole('textbox', { name: 'Page title' }).fill('Drag test')
+  await page.getByRole('textbox', { name: 'Page title' }).press('Enter')
+  await page.locator('[data-block-id]').first().fill('Alpha line')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('Beta line')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('Gamma line')
+  await page.locator('[data-block-id]').first().click()
+  await recordSticker(page)
+
+  const sticker = page.getByTestId('audio-block')
+  await expect(sticker).toHaveCount(1)
+  await page.waitForTimeout(600) // entrance spring settles
+  const before = (await sticker.boundingBox())!
+
+  // drag it diagonally: down past the next lines and to the left, i.e. not just up/down
+  // grab it by its middle (a tilted sticker's bounding-box corner is empty space)
+  const gx = before.x + before.width / 2
+  const gy = before.y + before.height / 2
+  await page.mouse.move(gx, gy)
+  await page.mouse.down()
+  await page.mouse.move(gx - 120, gy + 60, { steps: 8 })
+  await page.mouse.move(gx - 260, gy + 130, { steps: 8 })
+  await page.mouse.up()
+  await page.waitForTimeout(600)
+
+  const after = (await sticker.boundingBox())!
+  expect(before.x - after.x).toBeGreaterThan(150) // moved sideways
+  expect(after.y - before.y).toBeGreaterThan(80) // and down
+  expect(await sticker.getAttribute('data-anchor')).toBeTruthy()
+  await expect(page.getByTestId('play')).toHaveAccessibleName(/^Play/) // dragging did not trigger playback
+
+  // the position is saved
+  await savedStatus(page)
+  await page.reload()
+  await page.waitForTimeout(600)
+  const reloaded = (await page.getByTestId('audio-block').boundingBox())!
+  expect(Math.abs(reloaded.x - after.x)).toBeLessThan(3)
+  expect(Math.abs(reloaded.y - after.y)).toBeLessThan(3)
+
+  // it travels with its line: make the text above it much longer and the sticker moves down with it
+  const yBefore = reloaded.y
+  await page.locator('[data-block-id]').first().fill('Alpha line that is now long enough to wrap onto several rows of text on the screen. '.repeat(6))
+  await page.waitForTimeout(600)
+  const yAfter = (await page.getByTestId('audio-block').boundingBox())!.y
+  expect(yAfter).toBeGreaterThan(yBefore + 20)
+})
+
+test('a sticker can be moved with the keyboard', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await fresh(page)
+  await recordSticker(page, 800)
+  const sticker = page.getByTestId('audio-block')
+  await expect(sticker).toHaveCount(1)
+  await page.waitForTimeout(600)
+  const before = (await sticker.boundingBox())!
+  await sticker.focus()
+  await page.keyboard.press('Shift+ArrowLeft')
+  await page.keyboard.press('Shift+ArrowDown')
+  await page.waitForTimeout(500)
+  const after = (await sticker.boundingBox())!
+  expect(before.x - after.x).toBeGreaterThan(30)
+  expect(after.y - before.y).toBeGreaterThan(30)
 })
 
 test('microphone denied shows a helpful message', async ({ browser }) => {
@@ -118,9 +204,10 @@ test('pages: create, filter, delete, search, keyboard flow', async ({ page }) =>
   await savedStatus(page)
 
   // filter
+  const nav = page.getByRole('navigation', { name: 'Pages' })
   await page.getByRole('searchbox', { name: 'Filter pages by title' }).fill('groc')
-  await expect(page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: 'Groceries', exact: true })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: 'Meeting notes', exact: true })).toHaveCount(0)
+  await expect(nav.getByRole('button', { name: /Groceries/ }).first()).toBeVisible()
+  await expect(nav.getByRole('button', { name: /Meeting notes/ })).toHaveCount(0)
   await page.getByRole('searchbox', { name: 'Filter pages by title' }).fill('zzz')
   await expect(page.getByText('No pages found.')).toBeVisible()
   await page.getByRole('searchbox', { name: 'Filter pages by title' }).fill('')
@@ -138,21 +225,17 @@ test('pages: create, filter, delete, search, keyboard flow', async ({ page }) =>
   // delete with confirm
   await page.getByRole('button', { name: 'Delete page Groceries' }).click()
   await page.getByRole('button', { name: 'Cancel' }).click()
-  await expect(page.getByRole('button', { name: 'Groceries', exact: true })).toBeVisible()
+  await expect(nav.getByRole('button', { name: /Groceries/ }).first()).toBeVisible()
   await page.getByRole('button', { name: 'Delete page Groceries' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
-  await expect(page.getByRole('button', { name: 'Groceries', exact: true })).toHaveCount(0)
+  await expect(nav.getByRole('button', { name: /Groceries/ })).toHaveCount(0)
 })
 
-test('backup round trip restores pages and audio', async ({ page }) => {
+test('backup round trip restores pages and stickers', async ({ page }) => {
   await fresh(page)
   await page.getByRole('button', { name: 'New page' }).click()
   await page.getByRole('textbox', { name: 'Page title' }).fill('Backup me')
-  await page.getByTestId('add-audio').click()
-  await page.getByRole('button', { name: 'Start recording' }).click()
-  await page.waitForTimeout(1000)
-  await page.getByRole('button', { name: 'Stop' }).click()
-  await page.getByTestId('add-to-note').click()
+  await recordSticker(page, 1000)
   await expect(page.getByTestId('audio-block')).toHaveCount(1)
   await savedStatus(page)
 
@@ -163,14 +246,13 @@ test('backup round trip restores pages and audio', async ({ page }) => {
   // delete the page, then restore it from the backup
   await page.getByRole('button', { name: 'Delete page Backup me' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
-  await expect(page.getByRole('button', { name: 'Backup me', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Backup me/ })).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Backup', exact: true }).click()
   await page.getByLabel('Choose a Jotly backup file').setInputFiles(path)
   // the Welcome page also exists locally, so the app asks what to do with it
   await page.getByRole('button', { name: 'Skip them' }).click()
-  await expect(page.getByRole('button', { name: 'Backup me', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Backup me', exact: true }).click()
+  await page.getByRole('navigation', { name: 'Pages' }).getByRole('button', { name: /Backup me/ }).first().click()
   await expect(page.getByTestId('audio-block')).toHaveCount(1)
   await page.getByTestId('play').click()
   await expect(page.getByTestId('play')).toHaveAccessibleName(/^Pause/)

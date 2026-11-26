@@ -64,7 +64,7 @@ export function SearchDialog({ onClose }: { onClose: () => void }) {
               tabIndex={-1}
               onClick={() => open(i)}
               onMouseMove={() => setIndex(i)}
-              className={`block w-full rounded-lg px-3 py-2 text-left ${i === index ? 'bg-accent-soft' : ''}`}
+              className={`block w-full rounded-[3px] px-3 py-2 text-left ${i === index ? 'bg-accent-soft' : ''}`}
             >
               <div className="truncate text-sm font-medium">{r.page.title || 'Untitled'}</div>
               {r.snippet && r.matchRange && (

@@ -76,10 +76,10 @@ export function BackupDialog({ onClose }: { onClose: () => void }) {
             Your notes live only in this browser. A backup is a single .zip with every page and recording — keep one somewhere safe.
           </p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" data-autofocus disabled={busy} onClick={doExport} className="rounded-lg bg-accent px-3.5 py-2 font-medium text-accent-fg">
+            <button type="button" data-autofocus disabled={busy} onClick={doExport} className="rounded-[3px] bg-accent px-3.5 py-2 font-medium text-accent-fg">
               {busy ? 'Working…' : 'Download backup'}
             </button>
-            <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className="rounded-lg border border-line px-3.5 py-2 hover:bg-sunken">
+            <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className="rounded-[3px] border border-line px-3.5 py-2 hover:bg-sunken">
               Restore from file…
             </button>
             <input ref={fileRef} type="file" accept=".zip,application/zip" className="sr-only" aria-label="Choose a Jotly backup file" onChange={(e) => onFile(e.target.files?.[0])} />
@@ -100,13 +100,13 @@ export function BackupDialog({ onClose }: { onClose: () => void }) {
             {plan.conflicts.length} page{plan.conflicts.length === 1 ? '' : 's'} in this backup already exist{plan.conflicts.length === 1 ? 's' : ''} here. What should happen to them?
           </p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" data-autofocus disabled={busy} onClick={() => finish(plan, 'keep-both')} className="rounded-lg bg-accent px-3.5 py-2 font-medium text-accent-fg">
+            <button type="button" data-autofocus disabled={busy} onClick={() => finish(plan, 'keep-both')} className="rounded-[3px] bg-accent px-3.5 py-2 font-medium text-accent-fg">
               Keep both
             </button>
-            <button type="button" disabled={busy} onClick={() => finish(plan, 'replace')} className="rounded-lg border border-line px-3.5 py-2 hover:bg-sunken">
+            <button type="button" disabled={busy} onClick={() => finish(plan, 'replace')} className="rounded-[3px] border border-line px-3.5 py-2 hover:bg-sunken">
               Replace mine
             </button>
-            <button type="button" disabled={busy} onClick={() => finish(plan, 'skip')} className="rounded-lg border border-line px-3.5 py-2 hover:bg-sunken">
+            <button type="button" disabled={busy} onClick={() => finish(plan, 'skip')} className="rounded-[3px] border border-line px-3.5 py-2 hover:bg-sunken">
               Skip them
             </button>
           </div>

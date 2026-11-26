@@ -11,11 +11,11 @@ export function ToastHost() {
           <motion.div
             key={toast.id}
             {...fadeUp}
-            className={`pointer-events-auto flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm shadow-lg ${toast.tone === 'error' ? 'border-danger/40 bg-surface text-danger' : 'border-line bg-surface'}`}
+            className={`pointer-events-auto flex items-center gap-3 rounded-[3px] border px-4 py-2.5 text-sm shadow-lg ${toast.tone === 'error' ? 'border-danger/40 bg-surface text-danger' : 'border-line bg-surface'}`}
           >
             <span>{toast.message}</span>
             {toast.undo && (
-              <button type="button" onClick={toast.undo} className="font-medium text-accent underline-offset-2 hover:underline">
+              <button type="button" onClick={toast.undo} className="label text-accent-ink underline-offset-4 hover:underline">
                 Undo
               </button>
             )}

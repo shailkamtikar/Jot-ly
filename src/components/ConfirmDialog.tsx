@@ -17,16 +17,15 @@ export function ConfirmDialog({
 }) {
   return (
     <Modal title={title} onClose={onCancel}>
-      <p className="mb-5 text-sm text-muted">{message}</p>
+      <p className="mb-6 text-[0.95rem] leading-relaxed text-muted">{message}</p>
       <div className="flex justify-end gap-2">
-        <button type="button" data-autofocus onClick={onCancel} className="rounded-lg border border-line px-3.5 py-2 text-sm hover:bg-sunken">
+        <button type="button" data-autofocus onClick={onCancel} className="label rounded-[3px] border border-line-strong px-4 py-2.5 transition-colors hover:bg-sunken">
           Cancel
         </button>
         <button
           type="button"
           onClick={onConfirm}
-          className={`rounded-lg px-3.5 py-2 text-sm font-medium text-white ${danger ? 'bg-danger' : 'bg-accent text-accent-fg'}`}
-          style={danger ? { color: '#fff' } : undefined}
+          className={`label rounded-[3px] px-4 py-2.5 transition-[filter] hover:brightness-110 ${danger ? 'bg-danger text-[#fff]' : 'bg-accent text-accent-fg'}`}
         >
           {confirmLabel}
         </button>
