@@ -12,6 +12,7 @@ export function createPage(title = ''): Page {
     id: uid(),
     title,
     blocks: [createBlock()],
+    stickers: [],
     createdAt: now,
     updatedAt: now,
     schemaVersion: SCHEMA_VERSION,

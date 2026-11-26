@@ -7,7 +7,7 @@ import { hashForPage, pageIdFromHash } from './hash'
 import { searchPages } from './search'
 import { createMemoryStore } from '../storage/memoryStore'
 import { createIdbStore, openJotlyDB } from '../storage/idbStore'
-import type { AudioBlock, AudioRecord, Page } from './types'
+import type { AudioRecord, Page, Sticker } from './types'
 
 function pageWithAudio(title = 'Plan'): { page: Page; rec: AudioRecord } {
   const page = createPage(title)
@@ -19,8 +19,10 @@ function pageWithAudio(title = 'Plan'): { page: Page; rec: AudioRecord } {
     byteSize: 4,
     durationMs: 65_000,
   }
-  const audio: AudioBlock = { id: 'ab-1', type: 'audio', audioId: rec.id, title: 'Idea', durationMs: 65_000, peaks: [0.5] }
-  page.blocks = [createBlock('paragraph', 'Intro text'), audio, createBlock('bullet', 'Do the thing')]
+  const first = createBlock('paragraph', 'Intro text')
+  const sticker: Sticker = { id: 'st-1', audioId: rec.id, title: 'Idea', durationMs: 65_000, peaks: [0.5], x: 0.6, anchorId: first.id, dy: 4 }
+  page.blocks = [first, createBlock('bullet', 'Do the thing')]
+  page.stickers = [sticker]
   return { page, rec }
 }
 
@@ -28,18 +30,8 @@ describe('markdown export', () => {
   it('renders a mixed page', () => {
     const { page } = pageWithAudio()
     page.blocks.splice(1, 0, createBlock('heading', 'Follow-up'))
-    expect(toMarkdown(page)).toMatchInlineSnapshot(`
-      "# Plan
-
-      Intro text
-
-      ## Follow-up
-
-      > 🎙 Audio: Idea (1:05)
-
-      - Do the thing
-      "
-    `)
+    // the sticker is attached to the first block, so it follows that block's text
+    expect(toMarkdown(page)).toBe('# Plan\n\nIntro text\n\n> 🎙 Audio: Idea (1:05)\n\n## Follow-up\n\n- Do the thing\n')
   })
   it('exports an empty page as just a title', () => {
     expect(toMarkdown(createPage('Only'))).toBe('# Only\n')
@@ -181,7 +173,7 @@ describe('backup', () => {
     const { pages } = await store.listPages()
     expect(pages).toHaveLength(2)
     const copy = pages.find((p) => p.id !== page.id)!
-    const ab = copy.blocks.find((b) => b.type === 'audio') as AudioBlock
+    const ab = copy.stickers[0]
     expect(ab.audioId).not.toBe('aud-1')
     expect(await store.getAudio(ab.audioId)).toBeDefined()
     expect(await store.getAudio('aud-1')).toBeDefined()

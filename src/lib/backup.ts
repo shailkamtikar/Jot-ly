@@ -24,9 +24,8 @@ export async function createBackup(store: Store, pages: Page[]): Promise<Uint8Ar
   for (const page of pages) {
     files[`pages/${page.id}.json`] = strToU8(JSON.stringify(page))
     manifest.pages.push(page.id)
-    for (const b of page.blocks) {
-      if (b.type !== 'audio') continue
-      const rec = await store.getAudio(b.audioId)
+    for (const s of page.stickers) {
+      const rec = await store.getAudio(s.audioId)
       if (!rec) continue
       const file = `audio/${rec.id}.${extensionFor(rec.mimeType)}`
       files[file] = new Uint8Array(await blobToBytes(rec.blob))
@@ -106,9 +105,9 @@ export function readBackup(bytes: Uint8Array, existingPageIds: Set<string>): Imp
       durationMs: typeof a.durationMs === 'number' ? a.durationMs : 0,
     })
   }
-  // Count audio blocks whose recording is not in the file.
+  // Count stickers whose recording is not in the file.
   const have = new Set(audio.map((a) => a.id))
-  for (const p of pages) for (const b of p.blocks) if (b.type === 'audio' && !have.has(b.audioId)) missingAudio++
+  for (const p of pages) for (const s of p.stickers) if (!have.has(s.audioId)) missingAudio++
 
   return { pages, audio, missingAudio, conflicts: pages.filter((p) => existingPageIds.has(p.id)).map((p) => p.id) }
 }
@@ -121,7 +120,7 @@ export async function applyImport(store: Store, plan: ImportPlan, strategy: Conf
   const conflicts = new Set(plan.conflicts)
   for (const original of plan.pages) {
     let page = original
-    const audio = plan.audio.filter((a) => page.blocks.some((b) => b.type === 'audio' && b.audioId === a.id))
+    const audio = plan.audio.filter((a) => page.stickers.some((s) => s.audioId === a.id))
     let records = audio
     if (conflicts.has(page.id)) {
       if (strategy === 'skip') continue
@@ -132,7 +131,7 @@ export async function applyImport(store: Store, plan: ImportPlan, strategy: Conf
           ...page,
           id: newPageId,
           title: page.title ? `${page.title} (imported)` : 'Imported',
-          blocks: page.blocks.map((b) => (b.type === 'audio' && idMap.has(b.audioId) ? { ...b, audioId: idMap.get(b.audioId)! } : b)),
+          stickers: page.stickers.map((s) => (idMap.has(s.audioId) ? { ...s, audioId: idMap.get(s.audioId)! } : s)),
         }
         records = audio.map((a) => ({ ...a, id: idMap.get(a.id)!, pageId: newPageId }))
       }

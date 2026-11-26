@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { createBlock, createPage, insertAfter, removeBlock, uid } from '../lib/blocks'
+import { createBlock, createPage, uid } from '../lib/blocks'
 import { hashForPage, pageIdFromHash } from '../lib/hash'
-import type { AudioBlock, AudioRecord, Block, Page } from '../lib/types'
+import type { AudioRecord, Page, Sticker } from '../lib/types'
 import { initStorage, requestPersistence, toStorageError, type Store } from '../storage'
 import { createSaveQueue, type SaveQueue, type SaveStatus } from './saveQueue'
 
@@ -28,14 +28,15 @@ export interface Workspace {
   selectPage: (id: string) => void
   deletePage: (id: string) => Promise<void>
   updatePage: (id: string, fn: (p: Page) => Page, opts?: { immediate?: boolean }) => void
-  /** Persist the audio and its block together, then show it. Throws a StorageError on failure. */
-  addSticker: (pageId: string, afterBlockId: string | null, record: AudioRecord, block: AudioBlock) => Promise<void>
-  removeSticker: (pageId: string, blockId: string) => void
+  /** Persist the audio and its sticker together, then show it. Throws a StorageError on failure. */
+  addSticker: (pageId: string, sticker: Sticker, record: AudioRecord) => Promise<void>
+  updateSticker: (pageId: string, stickerId: string, patch: Partial<Sticker>, opts?: { immediate?: boolean }) => void
+  removeSticker: (pageId: string, stickerId: string) => void
   getAudio: (id: string) => Promise<AudioRecord | undefined>
   importPages: (pages: Page[]) => void
   store: Store | null
   flush: () => Promise<void>
-  /** Last text/audio block the user touched on the active page, used for insertion. */
+  /** Last block the user touched on the active page; new stickers attach to it. */
   focusedBlockId: string | null
   setFocusedBlockId: (id: string | null) => void
 }
@@ -53,13 +54,14 @@ const SEED_KEY = 'jotly-seeded'
 function welcomePage(): Page {
   const p = createPage('Welcome to Jotly')
   p.blocks = [
-    createBlock('paragraph', 'Jotly is a calm place for notes — with a twist: you can say things, not just write them.'),
-    createBlock('heading', 'Try an audio sticker'),
-    createBlock('bullet', 'Click the + below, choose Audio, and record a short voice note.'),
-    createBlock('bullet', 'The sticker lands right here between your blocks. Play it, rename it, drag it anywhere.'),
+    createBlock('paragraph', 'Jotly is a quiet place for notes with one twist: you can say things, not just write them.'),
+    createBlock('heading', 'Stick a voice on it'),
+    createBlock('bullet', 'Press “Audio sticker” below and record a short voice note.'),
+    createBlock('bullet', 'It lands next to the line you were writing. Drag it anywhere on the page; it stays attached to that line.'),
+    createBlock('bullet', 'Tap it to play. While it plays it opens up; when it’s done it folds back into a small sticker.'),
     createBlock('heading', 'Good to know'),
-    createBlock('bullet', 'Everything is saved automatically, on this device only. Use Backup in the sidebar to keep a copy.'),
-    createBlock('bullet', 'Press Ctrl/⌘ K to search, and Alt + ↑ / ↓ to move a block.'),
+    createBlock('bullet', 'Everything saves automatically, on this device only. Use Backup in the sidebar to keep a copy.'),
+    createBlock('bullet', 'Press Ctrl/⌘ K to search, and Alt + ↑ / ↓ to move a line.'),
     createBlock('paragraph', ''),
   ]
   return p
@@ -144,7 +146,7 @@ export function WorkspaceProvider({ children, storeFactory = initStorage }: { ch
 
       // Remove audio left behind by interrupted deletes.
       const referenced = new Set<string>()
-      for (const p of list) for (const b of p.blocks) if (b.type === 'audio') referenced.add(b.audioId)
+      for (const p of list) for (const s of p.stickers) referenced.add(s.audioId)
       store.cleanupOrphans(referenced).catch(() => {})
 
       list.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -235,16 +237,16 @@ export function WorkspaceProvider({ children, storeFactory = initStorage }: { ch
   )
 
   const addSticker = useCallback<Workspace['addSticker']>(
-    async (pageId, afterBlockId, record, block) => {
+    async (pageId, sticker, record) => {
       const store = storeRef.current
       const cur = pagesRef.current.find((p) => p.id === pageId)
       if (!store || !cur) throw new Error('Page not found')
       const next: Page = {
         ...cur,
-        blocks: insertAfter(cur.blocks, afterBlockId, block),
+        stickers: [...cur.stickers, sticker],
         updatedAt: new Date().toISOString(),
       }
-      // Audio and page are written in one transaction; the block only appears once that has committed.
+      // Audio and page are written in one transaction; the sticker only appears once that has committed.
       await store.savePageWithAudio(next, record)
       setPages(pagesRef.current.map((p) => (p.id === pageId ? next : p)))
       setSaveStatus('saved')
@@ -253,34 +255,31 @@ export function WorkspaceProvider({ children, storeFactory = initStorage }: { ch
   )
 
   const removeSticker = useCallback<Workspace['removeSticker']>(
-    (pageId, blockId) => {
+    (pageId, stickerId) => {
       const page = pagesRef.current.find((p) => p.id === pageId)
-      const idx = page?.blocks.findIndex((b) => b.id === blockId) ?? -1
-      const block = page?.blocks[idx]
-      if (!page || !block || block.type !== 'audio') return
-      updatePage(pageId, (p) => ({ ...p, blocks: removeBlock(p.blocks, blockId) }), { immediate: true })
+      const sticker = page?.stickers.find((s) => s.id === stickerId)
+      if (!page || !sticker) return
+      updatePage(pageId, (p) => ({ ...p, stickers: p.stickers.filter((s) => s.id !== stickerId) }), { immediate: true })
       // Keep the recording for a few seconds so Undo is lossless.
       const timer = setTimeout(() => {
-        storeRef.current?.deleteAudio(block.audioId).catch(() => {})
+        storeRef.current?.deleteAudio(sticker.audioId).catch(() => {})
       }, 5000)
       pushToast({
         message: 'Sticker deleted',
         undo: () => {
           clearTimeout(timer)
-          updatePage(
-            pageId,
-            (p) => {
-              const copy: Block[] = [...p.blocks]
-              copy.splice(Math.min(idx, copy.length), 0, block)
-              return { ...p, blocks: copy }
-            },
-            { immediate: true },
-          )
+          updatePage(pageId, (p) => ({ ...p, stickers: [...p.stickers, sticker] }), { immediate: true })
           dismissToast()
         },
       })
     },
     [dismissToast, pushToast, updatePage],
+  )
+
+  const updateSticker = useCallback<Workspace['updateSticker']>(
+    (pageId, stickerId, patch, opts) =>
+      updatePage(pageId, (p) => ({ ...p, stickers: p.stickers.map((s) => (s.id === stickerId ? { ...s, ...patch } : s)) }), opts),
+    [updatePage],
   )
 
   const getAudio = useCallback<Workspace['getAudio']>((id) => storeRef.current?.getAudio(id) ?? Promise.resolve(undefined), [])
@@ -315,6 +314,7 @@ export function WorkspaceProvider({ children, storeFactory = initStorage }: { ch
       deletePage,
       updatePage,
       addSticker,
+      updateSticker,
       removeSticker,
       getAudio,
       importPages,
@@ -323,7 +323,7 @@ export function WorkspaceProvider({ children, storeFactory = initStorage }: { ch
       focusedBlockId,
       setFocusedBlockId,
     }),
-    [ready, storageMode, persisted, skippedPages, pages, activeId, saveStatus, toast, dismissToast, pushToast, createNewPage, selectPage, deletePage, updatePage, addSticker, removeSticker, getAudio, importPages, flush, focusedBlockId],
+    [ready, storageMode, persisted, skippedPages, pages, activeId, saveStatus, toast, dismissToast, pushToast, createNewPage, selectPage, deletePage, updatePage, addSticker, updateSticker, removeSticker, getAudio, importPages, flush, focusedBlockId],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

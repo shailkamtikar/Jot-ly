@@ -16,10 +16,8 @@ export function normalize(s: string): string {
 
 export function pageText(page: Page): string[] {
   const parts: string[] = []
-  for (const b of page.blocks) {
-    if (b.type === 'audio') parts.push(b.title)
-    else if (b.type !== 'unsupported') parts.push(b.content)
-  }
+  for (const b of page.blocks) if (b.type !== 'unsupported') parts.push(b.content)
+  for (const s of page.stickers) parts.push(s.title)
   return parts
 }
 

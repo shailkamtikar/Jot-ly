@@ -1,5 +1,5 @@
 import { formatDuration } from './blocks'
-import type { Page } from './types'
+import type { Page, Sticker } from './types'
 
 /** Escape characters that would otherwise turn plain text into Markdown syntax. */
 export function escapeMd(s: string): string {
@@ -10,6 +10,10 @@ export function escapeMd(s: string): string {
 
 export function toMarkdown(page: Page): string {
   const out: string[] = [`# ${escapeMd(page.title.trim() || 'Untitled')}`, '']
+  const stickerLine = (s: Sticker) => `> 🎙 Audio: ${escapeMd(s.title)} (${formatDuration(s.durationMs)})`
+  const attached = (anchorId: string | null) => page.stickers.filter((s) => s.anchorId === anchorId)
+
+  for (const s of attached(null)) out.push(stickerLine(s), '')
   for (const b of page.blocks) {
     switch (b.type) {
       case 'heading':
@@ -21,12 +25,10 @@ export function toMarkdown(page: Page): string {
       case 'paragraph':
         if (b.content.trim()) out.push(escapeMd(b.content), '')
         break
-      case 'audio':
-        out.push(`> 🎙 Audio: ${escapeMd(b.title)} (${formatDuration(b.durationMs)})`, '')
-        break
       default:
         break
     }
+    for (const s of attached(b.id)) out.push('', stickerLine(s), '')
   }
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n'
 }
